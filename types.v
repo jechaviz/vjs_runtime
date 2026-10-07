@@ -18,9 +18,9 @@ pub enum RuntimeBackend {
 pub struct RuntimeConfig {
 pub:
 	mode          RuntimeMode = .auto
-	policy        vjs_core.RuntimePolicy = vjs_core.strict_policy()
-	allow_network bool
-	allow_fs      bool
+	policy        vjs_core.RuntimePolicy = vjs_core.open_policy()
+	allow_network bool = true
+	allow_fs      bool = true
 	allow_storage bool = true
 }
 
