@@ -121,7 +121,7 @@ fn fast_dom_result(source string, config RuntimeConfig, plan vjs_core.EvalPlan) 
 		}
 		if stmt.contains('.classList.add(') {
 			expr := stmt.all_before('.classList.add(').trim_space()
-			selector := selector_for_expr(expr, vars) or { return none }
+			selector := vars[expr] or { return none }
 			class_name := call_string_arg(stmt) or { return none }
 			ops << vjs_core.DomOp{
 				kind: .add_class
@@ -133,7 +133,7 @@ fn fast_dom_result(source string, config RuntimeConfig, plan vjs_core.EvalPlan) 
 		}
 		if stmt.contains('.classList.remove(') {
 			expr := stmt.all_before('.classList.remove(').trim_space()
-			selector := selector_for_expr(expr, vars) or { return none }
+			selector := vars[expr] or { return none }
 			class_name := call_string_arg(stmt) or { return none }
 			ops << vjs_core.DomOp{
 				kind: .remove_class
@@ -145,7 +145,7 @@ fn fast_dom_result(source string, config RuntimeConfig, plan vjs_core.EvalPlan) 
 		}
 		if stmt.contains('.setAttribute(') {
 			expr := stmt.all_before('.setAttribute(').trim_space()
-			selector := selector_for_expr(expr, vars) or { return none }
+			selector := vars[expr] or { return none }
 			args := call_string_args(stmt) or { return none }
 			if args.len != 2 {
 				return none
