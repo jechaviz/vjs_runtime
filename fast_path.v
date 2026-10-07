@@ -82,8 +82,8 @@ fn fast_dom_result(source string, config RuntimeConfig, plan vjs_core.EvalPlan) 
 			continue
 		}
 		if stmt.contains('.textContent') && stmt.contains('=') {
-			name := stmt.all_before('.textContent').trim_space()
-			selector := vars[name] or { return none }
+			expr := stmt.all_before('.textContent').trim_space()
+			selector := selector_for_expr(expr, vars) or { return none }
 			text := rhs_string(stmt) or { return none }
 			value = text
 			ops << vjs_core.DomOp{
@@ -94,15 +94,67 @@ fn fast_dom_result(source string, config RuntimeConfig, plan vjs_core.EvalPlan) 
 			}
 			continue
 		}
+		if stmt.contains('.innerText') && stmt.contains('=') {
+			expr := stmt.all_before('.innerText').trim_space()
+			selector := selector_for_expr(expr, vars) or { return none }
+			text := rhs_string(stmt) or { return none }
+			value = text
+			ops << vjs_core.DomOp{
+				kind: .set_text
+				selector: selector
+				name: 'innerText'
+				value: text
+			}
+			continue
+		}
+		if stmt.contains('.value') && stmt.contains('=') {
+			expr := stmt.all_before('.value').trim_space()
+			selector := selector_for_expr(expr, vars) or { return none }
+			text := rhs_string(stmt) or { return none }
+			ops << vjs_core.DomOp{
+				kind: .set_attr
+				selector: selector
+				name: 'value'
+				value: text
+			}
+			continue
+		}
 		if stmt.contains('.classList.add(') {
-			name := stmt.all_before('.classList.add(').trim_space()
-			selector := vars[name] or { return none }
+			expr := stmt.all_before('.classList.add(').trim_space()
+			selector := selector_for_expr(expr, vars) or { return none }
 			class_name := call_string_arg(stmt) or { return none }
 			ops << vjs_core.DomOp{
 				kind: .add_class
 				selector: selector
 				name: 'class'
 				value: class_name
+			}
+			continue
+		}
+		if stmt.contains('.classList.remove(') {
+			expr := stmt.all_before('.classList.remove(').trim_space()
+			selector := selector_for_expr(expr, vars) or { return none }
+			class_name := call_string_arg(stmt) or { return none }
+			ops << vjs_core.DomOp{
+				kind: .remove_class
+				selector: selector
+				name: 'class'
+				value: class_name
+			}
+			continue
+		}
+		if stmt.contains('.setAttribute(') {
+			expr := stmt.all_before('.setAttribute(').trim_space()
+			selector := selector_for_expr(expr, vars) or { return none }
+			args := call_string_args(stmt) or { return none }
+			if args.len != 2 {
+				return none
+			}
+			ops << vjs_core.DomOp{
+				kind: .set_attr
+				selector: selector
+				name: args[0].to_lower()
+				value: args[1]
 			}
 			continue
 		}
@@ -126,13 +178,44 @@ fn fast_dom_result(source string, config RuntimeConfig, plan vjs_core.EvalPlan) 
 
 fn parse_query_var(stmt string, mut vars map[string]string) bool {
 	clean := stmt.replace('let ', '').replace('const ', '').replace('var ', '')
-	if !clean.contains('=') || !clean.contains('document.querySelector(') {
+	if !clean.contains('=') {
 		return false
 	}
 	name := clean.all_before('=').trim_space()
-	selector := call_string_arg(clean) or { return false }
+	expr := clean.all_after('=').trim_space()
+	selector := selector_for_expr(expr, vars) or { return false }
 	vars[name] = selector
 	return true
+}
+
+fn selector_for_expr(expr string, vars map[string]string) ?string {
+	clean := expr.trim_space()
+	if selector := vars[clean] {
+		return selector
+	}
+	if clean.starts_with('document.querySelector(') {
+		return call_string_arg(clean)
+	}
+	if clean.starts_with('document.getElementById(') {
+		id := call_string_arg(clean) or { return none }
+		return '#' + id
+	}
+	return none
+}
+
+fn call_string_args(stmt string) ?[]string {
+	start := stmt.index('(') or { return none }
+	end := stmt.last_index(')') or { return none }
+	if end <= start {
+		return none
+	}
+	raw := stmt[start + 1..end]
+	mut values := []string{}
+	for part in raw.split(',') {
+		value := literal_or_concat(part.trim_space()) or { return none }
+		values << value
+	}
+	return values
 }
 
 pub fn eval_arrow_const_call(source string) ?string {
