@@ -9,13 +9,14 @@ fn test_auto_uses_fast_backend_for_simple_dom_script() {
 	assert result.dom_ops.len == 1
 }
 
-fn test_auto_denies_blocked_host_capability() {
+fn test_auto_escalates_host_capability_to_full_runtime() {
 	result := evaluate(RuntimeRequest{
 		source: 'fetch("https://example.test")'
 	}, RuntimeConfig{})
 	assert !result.ok
-	assert result.backend == .none
-	assert result.decision == .deny
+	assert result.backend == .full_planning
+	assert result.decision == .fallback
+	assert result.fallback_reason.contains('capability')
 }
 
 fn test_light_only_reports_fallback_need() {
