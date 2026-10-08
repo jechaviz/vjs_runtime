@@ -1,6 +1,6 @@
 module vjs_runtime
 
-import json
+import json2
 import vjs_core
 
 struct BridgePayload {
@@ -17,7 +17,7 @@ struct BridgeOp {
 }
 
 pub fn wrap_full_source_for_dom_ops(source string, allow_timers bool, allow_events bool) string {
-	encoded_source := json.encode(source)
+	encoded_source := json2.encode(source)
 	timer_line := if allow_timers {
 		'  globalThis.setTimeout = function (fn, delay) { op("timer", "", "setTimeout", "callback", Number(delay) || 0); return 0; };'
 	} else {
@@ -56,7 +56,7 @@ pub fn wrap_full_source_for_dom_ops(source string, allow_timers bool, allow_even
 }
 
 pub fn decode_bridge_payload(text string) !(string, []vjs_core.DomOp) {
-	payload := json.decode(BridgePayload, text)!
+	payload := json2.decode[BridgePayload](text)!
 	mut ops := []vjs_core.DomOp{cap: payload.ops.len}
 	for item in payload.ops {
 		ops << vjs_core.DomOp{
