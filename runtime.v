@@ -58,6 +58,16 @@ fn evaluate_light_only(request RuntimeRequest, config RuntimeConfig, plan vjs_co
 		}
 	}
 	light := vjs_core.eval(core_request(request), config.policy)
+	if !light.ok && fallbackable_core_error(light.error) {
+		return RuntimeResult{
+			mode: config.mode
+			backend: .core
+			decision: .fallback
+			error: light.error
+			fallback_reason: light.error
+			diagnostics: light.diagnostics
+		}
+	}
 	return result_from_core(light, config.mode, plan)
 }
 
